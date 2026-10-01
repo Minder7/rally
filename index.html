@@ -12,6 +12,8 @@
 	<script>
 		window.OneSignalDeferred = window.OneSignalDeferred || [];
 		window.OneSignalDeferred.push(async (OneSignal) => {
+			const serviceWorkerScope = new URL(".", window.location.href).pathname;
+			const serviceWorkerPath = `${serviceWorkerScope.replace(/^\//, "")}OneSignalSDKWorker.js`;
 			if ("serviceWorker" in navigator) {
 				const registrations = await navigator.serviceWorker.getRegistrations().catch(() => []);
 				await Promise.all(registrations.filter((registration) => {
@@ -21,6 +23,8 @@
 			}
 			await OneSignal.init({
 				appId: "a5e3a8ee-0e7e-491a-b2fe-97c2d7d7fa37",
+				serviceWorkerPath,
+				serviceWorkerParam: { scope: serviceWorkerScope },
 				allowLocalhostAsSecureOrigin: true
 			});
 		});
@@ -648,10 +652,13 @@
 						web_url: window.location.origin + window.location.pathname
 					})
 				});
-				const data = await res.json();
+				const data = await res.json().catch(() => ({}));
 				console.log("OneSignal share push:", JSON.stringify(data));
+				if (!res.ok || data.errors || !data.id) return "failed";
+				return data.recipients === 0 ? "no-subscriber" : "accepted";
 			} catch (error) {
 				console.error("Share push failed:", error);
+				return "failed";
 			}
 		};
 
@@ -968,8 +975,12 @@
 							showToast("تمت المشاركة، لكن إشعار الجرس يحتاج نشر database.rules.json.");
 							return;
 						}
-						sendSharePush(post.ownerUid, "مشارك جديد في تجمعك", `${user.name} شارك في تجمعك: ${post.location}`);
-						showToast("تمت المشاركة، وسيصل إشعار لصاحب التجمع");
+						const pushStatus = await sendSharePush(post.ownerUid, "مشارك جديد في تجمعك", `${user.name} شارك في تجمعك: ${post.location}`);
+						showToast(pushStatus === "accepted"
+							? "تمت المشاركة، وقبل OneSignal طلب الإشعار."
+							: pushStatus === "no-subscriber"
+								? "تمت المشاركة، لكن جهاز صاحب التجمع غير مشترك في OneSignal."
+								: "تمت المشاركة، لكن OneSignal رفض الإشعار. راجع Console للتفاصيل.");
 					}
 				} catch (error) {
 					showToast("تعذرت المشاركة. تأكد من تسجيل الدخول وقواعد Firebase.");

@@ -1,0 +1,42 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "posts": {
+      ".read": "auth != null",
+      "$postId": {
+        ".write": "auth != null && ((!data.exists() && newData.child('ownerUid').val() === auth.uid) || data.child('ownerUid').val() === auth.uid)",
+        ".validate": "newData.hasChildren(['ownerUid', 'ownerName', 'location', 'date', 'startTime', 'endTime', 'warmup', 'route', 'distance', 'finish', 'createdAt']) && newData.child('ownerUid').val() === auth.uid && (!data.exists() || newData.child('ownerUid').val() === data.child('ownerUid').val())"
+      }
+    },
+    "postShares": {
+      ".read": "auth != null",
+      "$postId": {
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid && root.child('posts').child($postId).exists() && auth.uid !== root.child('posts').child($postId).child('ownerUid').val()",
+          ".validate": "newData.val() === true"
+        }
+      }
+    },
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "notifications": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": false,
+        "$notificationId": {
+          ".write": "auth != null && !data.exists() && newData.hasChildren(['title', 'message', 'postId', 'ownerUid', 'actorUid', 'actorName', 'createdAt', 'read']) && newData.child('ownerUid').val() === $uid && newData.child('actorUid').val() === auth.uid && newData.child('actorUid').val() !== $uid && newData.child('actorName').val() === root.child('users').child(auth.uid).child('name').val() && root.child('posts').child(newData.child('postId').val()).child('ownerUid').val() === $uid && root.child('postShares').child(newData.child('postId').val()).child(auth.uid).val() === true",
+          ".validate": "newData.hasChildren(['title', 'message', 'postId', 'ownerUid', 'actorUid', 'actorName', 'createdAt', 'read']) && newData.child('read').isBoolean()",
+          "read": {
+            ".write": "auth != null && auth.uid === $uid",
+            ".validate": "newData.val() === true"
+          }
+        }
+      }
+    }
+  }
+}
